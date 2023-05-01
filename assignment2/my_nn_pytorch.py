@@ -187,6 +187,12 @@ class MyNeuralNetwork():
         self._logger.print_last_performance()
 
 
+    def get_total_train_time(self):
+        df = self.eventlog2pandas()
+        df = df[df.description.str.startswith('Training Epoch ')]
+        return np.around(df.elapsed_time.sum(), decimals=1)
+
+
     def test(self, dataloader):
         size = len(dataloader.dataset)
         self.model.eval()
@@ -288,7 +294,7 @@ class MyNeuralNetwork():
         
         self.print_epoch_info()
         end_time = timer()
-        self._log_event(self.iteration, self.epoch, start_time, end_time, 'Epoch %i' % self.epoch)
+        self._log_event(self.iteration, self.epoch, start_time, end_time, 'Training Epoch %i' % self.epoch)
 
     
     
