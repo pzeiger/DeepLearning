@@ -10,13 +10,13 @@ class NeuralNetwork(nn.Module):
         super(NeuralNetwork, self).__init__()
         self.conv_relu_stack = nn.Sequential(
             nn.Conv2d(in_channels=1, out_channels=8, kernel_size=3, stride=1, padding=1),
+            nn.Tanh(),
             nn.MaxPool2d(2,2),
-            nn.ReLU(),
             nn.Conv2d(in_channels=8, out_channels=16, kernel_size=3, stride=1, padding=1),
+            nn.Tanh(),
             nn.MaxPool2d(2,2),
-            nn.ReLU(),
             nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Flatten(),
             nn.Linear(32*7*7, 10),
         )
@@ -27,9 +27,9 @@ class NeuralNetwork(nn.Module):
 
 def params2fname(nepochs, lr, batch_size_train, suffix=None):
     if suffix == None:
-        out = 'ex13_convnn_swaporder-relu_%iepochs_lr%.4f_bs%i.pkl' % (nepochs, lr, batch_size_train)
+        out = 'ex132_convnn_tanh_%iepochs_lr%.4f_bs%i.pkl' % (nepochs, lr, batch_size_train)
     else:
-        out = 'ex13_convnn_swaporder-relu_%iepochs_lr%.4f_bs%i_%s.pkl' % (nepochs, lr, batch_size_train, suffix)
+        out = 'ex132_convnn_tanh_%iepochs_lr%.4f_bs%i_%s.pkl' % (nepochs, lr, batch_size_train, suffix)
     return out
 
 
