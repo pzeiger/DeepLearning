@@ -1,5 +1,5 @@
 import numpy as np
-import imageio
+from PIL import Image
 import glob
 
 def load_warwick(root_dir):
@@ -12,13 +12,13 @@ def load_warwick(root_dir):
     for ipath, lpath in zip(glob.glob(root_dir + "/image*.png"),\
                             glob.glob(root_dir + "/label*.png")):
         
-        image = imageio.imread(ipath)
+        image = Image.open(ipath)
         images.append(image)
         
-        labelmask = imageio.imread(lpath)
+        labelmask = Image.open(lpath)
         labelmasks.append(labelmask)
             
-    images = np.array(images).astype(np.double)/255.
-    labelmasks = np.array(labelmasks).astype(np.double)/255.
+#    images = np.array(images).astype(np.double)/255.
+#    labelmasks = np.array(labelmasks).astype(np.double)/255.
 #    labelmasks = labelmasks.reshape(labelmasks.shape[0], labelmasks.shape[1], labelmasks.shape[2], 1)
-    return images.astype(np.float32), labelmasks.astype(np.float32)
+    return images, labelmasks

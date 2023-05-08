@@ -4,12 +4,15 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import datasets
-from torchvision.transforms import ToTensor, Lambda, Compose
+from torchvision.datasets.vision import VisionDataset
+from torchvision.transforms import ToTensor
 import matplotlib.pyplot as plt
+from PIL import Image
+import glob
 
 import pickle
 import numpy as np
-from load_warwick import load_warwick
+
 
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
@@ -54,86 +57,108 @@ def init_MNIST(batch_size_train, batch_size_test, shuffle=False):
 
 
     
+    def target_transform(self, target):
+        tmparr = np.array(target)[np.newaxis,...]  # Needs to have shape 1xHxW
+        return torch.as_tensor(tmparr.astype(np.double)/255., dtype=self.target_dtype)
 
 
 
-class ToTensor(object):
-    """Convert ndarrays in sample to Tensors."""
-    
-    def __call__(self, sample):
-        image, labelmask = sample['image'], sample['labelmask']
-        
-        # swap color axis because
-        # numpy image: H x W x C
-        # torch image: C X H X W
-        image = image.transpose((2, 0, 1))
-        # labelmasks have only one color dimension
-#        labelmask = labelmask.transpose((2, 0, 1))
-#        print(image.shape)
-        
-        # Blue color is always zero
-        assert np.sum(image[2,...]) == 0.0
-        image = image[:2,...]
-#        print(image.shape)
-        
-        return {'image': torch.from_numpy(image),
-                'labelmask': torch.tensor(labelmask, dtype=torch.float)}
 
 
-class WarwickDataset(Dataset):
+class WarwickDataset(VisionDataset):
     """WARWICK dataset."""
 
-    def __init__(self, root_dir, transform=ToTensor()):
+    def __init__(self, root_dir, transform=ToTensor(), target_transform=ToTensor()):
         """
         Args:
             root_dir (string): Directory with all the images and labelmasks
         """
         self.transform = transform
-        try:
-            with open(str(root_dir) + '/data.npy','wb') as fh:
-                self.images = np.load(fh)
-                self.labelmasks = np.load(fh)
-        except:
-            print('loading')
-            self.images, self.labelmasks = load_warwick(root_dir)
-            with open(str(root_dir) + '/data.npy','wb') as fh:
-                np.save(fh, self.images)
-                np.save(fh, self.labelmasks)
-#        print(self.images.shape)
-#        print(self.images.dtype)
-#        print(self.images.min())
-#        print(self.images.max())
+        self.target_transform = target_transform
+        print('loading')
+        self.data, self.targets = self.from_dir(root_dir)
+   
+
+    def get_stats_data(self):
+        tmp = np.array([np.array(x) for x in self.data], dtype=np.single)
+        mean = tmp.mean(axis=(0,1,2))
+        std = tmp.std(axis=(0,1,2))
+        return mean, std
         
-#        print(self.labelmasks.shape)
-#        print(self.labelmasks.min())
-#        print(self.labelmasks.max())
-#        print(np.unique(self.labelmasks))
+    
+    def from_dir(self, root_dir):
+        # Loads the WARWICK dataset from png images
+         
+        # create list of image objects
+        images = []
+        labelmasks = []    
         
+        for ipath, lpath in zip(sorted(glob.glob(root_dir + "/image*.png")),\
+                                sorted(glob.glob(root_dir + "/label*.png"))):
+            
+            image = Image.open(ipath)
+            images.append(image)
+            
+            labelmask = Image.open(lpath)
+            labelmasks.append(labelmask)
+            
+        return images, labelmasks
+
+
     def __len__(self):
-        return self.images.shape[0]
-
-    def __getitem__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-        
-        sample = {'image': self.images[idx,:,:,:], 'labelmask': self.labelmasks[idx,:,:]}
-        
-        if self.transform:
-            sample = self.transform(sample)
-        
-        return sample
-
-
-def init(batch_size, shuffle):
-
-    training_data = WarwickDataset('WARWICK/Train')
-    test_data = WarwickDataset('WARWICK/Test')
+        return len(self.data)
     
-    train_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=shuffle)
-    test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=shuffle)
     
-    # Get cpu or gpu device for training.
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print("Using {} device".format(device))
+    def __getitem__(self, index):
+        
+        img, target = self.data[index], self.targets[index]
+        
+        if self.transform is not None:
+            img = self.transform(img)
+        
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+        
+        return img, target
     
-    return train_dataloader, test_dataloader, device
+    
+    def dataset2tensors(self):
+        X = []
+        y = []
+        for td, tt in zip(self.data, self.targets):
+            X.append(self.transform(td))
+            y.append(self.target_transform(tt))
+        return torch.stack(X), torch.stack(y)
+
+
+
+
+class ImgToTensor2Channels():
+    def __init__(self, transform=ToTensor()):
+        self.transform = transform
+        
+    def __call__(self, img):
+        img = self.transform(img)
+        return img[:2,...]
+
+
+class TargetTransformCrossEntropy():
+    def __call__(self, target):
+        tmparr = np.array(target)  # Needs to have shape HxW
+        return torch.as_tensor(tmparr.astype(np.double)/255., dtype=torch.int64)
+
+
+def init_warwick(batch_size_train, batch_size_test, shuffle=False, device='cpu'):
+
+    training_data = WarwickDataset('WARWICK/Train', transform=ImgToTensor2Channels(), 
+                                   target_transform=TargetTransformCrossEntropy())
+
+    test_data = WarwickDataset('WARWICK/Test', transform=ImgToTensor2Channels(),
+                               target_transform=TargetTransformCrossEntropy())
+
+    train_dataloader = DataLoader(training_data, batch_size=batch_size_train, shuffle=shuffle)
+    test_dataloader = DataLoader(test_data, batch_size=batch_size_test, shuffle=shuffle)
+    
+    return train_dataloader, test_dataloader
+
+

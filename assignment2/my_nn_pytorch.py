@@ -6,139 +6,28 @@ import numpy as np
 from timeit import default_timer as timer
 
 
-
-class EventLogEntry():
-    """
-    """
-    def __init__(self, iteration, epoch, start_time, end_time, description):
-        """
-        """
-        self.iteration = iteration
-        self.epoch = epoch
-        self.start_time = start_time
-        self.end_time = end_time
-        self.elapsed_time = self.end_time - self.start_time
-        self.description = description
-
-
-    def as_dict(self):
-        return {'iteration': self.iteration,
-                'epoch': self.epoch,
-                'start_time': self.start_time,
-                'end_time': self.end_time,
-                'elapsed_time': self.elapsed_time,
-                'description': self.description,
-                } 
-
-
-class NNLogEntry():
-    """
-    """
-    def __init__(self, iteration, epoch, accuracy, cost, dataset, batch=None):
-        """
-        """
-        self.iteration = iteration
-        self.epoch = epoch
-        self.accuracy = accuracy
-        self.cost = cost
-        self.dataset = dataset
-        self.batch = batch
-    
-
-    def as_dict(self):
-        return {'iteration': self.iteration,
-                'epoch': self.epoch,
-                'batch': self.batch,
-                'accuracy': self.accuracy,
-                'cost': self.cost,
-                'dataset': self.dataset,
-                } 
-
-
-class NNLogger():
-    """
-    """
+class AccuracyCriterion():
     
     def __init__(self):
-        """
-        """
-        self._traindata_log = []
-        self._traindata_batch_log = []
-        self._testdata_log = []
-        self._event_log = []
-        self.last_traindata = None
-        self.last_testdata = None
-        self.last_event = None
+        self.name = "accuracy"
 
-
-    def add_entry_traindata_log(self, iteration, epoch, accuracy, cost):
-        entry = NNLogEntry(iteration, epoch, accuracy, cost, 'train')
-        self._traindata_log.append(entry)
-        self.last_traindata = self._traindata_log[-1]
-
-
-    def add_entry_traindata_batch_log(self, iteration, epoch, accuracy, cost, batch):
-        entry = NNLogEntry(iteration, epoch, accuracy, cost, 'train_batch', batch)
-        self._traindata_batch_log.append(entry)
-        self.last_traindata_batch = self._traindata_batch_log[-1]
-
-
-    def add_entry_testdata_log(self, iteration, epoch, accuracy, cost):
-        entry = NNLogEntry(iteration, epoch, accuracy, cost, 'test')
-        self._testdata_log.append(entry)
-        self.last_testdata = self._testdata_log[-1]
-
-
-    def add_entry_event_log(self, iteration, epoch, starttime, endtime, description):
-        entry = EventLogEntry(iteration, epoch, starttime, endtime, description)
-        self._event_log.append(entry)
-        self.last_event = self._event_log[-1]
+    def __call__(self, prediction, target, full=False):
+        return [(prediction.argmax(1) == target).type(torch.float).cpu().numpy()]
     
-
-    def perflogdata2pandas(self):
-        data = self._traindata_batch_log + self._traindata_log + self._testdata_log
-        return pd.DataFrame([x.as_dict() for x in data])
-    
-
-    def eventlog2pandas(self):
-        data = self._event_log
-        return pd.DataFrame([x.as_dict() for x in data])
-
-
-    def print_last_train_performance(self):
-        print('!!!!!!!!!!!!!!!!!!!!!!!!!')
-        print('!        TRAIN          !')
-        print('!!!!!!!!!!!!!!!!!!!!!!!!!')
-        print('! EPOCH:          %5i' % self.last_traindata.epoch)
-        print('! ITERATION:      %5i' % self.last_traindata.iteration)
-        print('! COST:          %6.3f' % self.last_traindata.cost)
-        print('! ACCURACY:       %4.1f%%' % self.last_traindata.accuracy)
-        print('!!!!!!!!!!!!!!!!!!!!!!!!!\n')
-
-    
-    def print_last_test_performance(self):
-        print('!!!!!!!!!!!!!!!!!!!!!!!!!')
-        print('!        TEST           !')
-        print('!!!!!!!!!!!!!!!!!!!!!!!!!')
-        print('! EPOCH:          %5i' % self.last_testdata.epoch)
-        print('! ITERATION:      %5i' % self.last_testdata.iteration)
-        print('! COST:          %6.3f' % self.last_testdata.cost)
-        print('! ACCURACY:       %4.1f%%' % self.last_testdata.accuracy)
-        print('!!!!!!!!!!!!!!!!!!!!!!!!!\n')
-    
-
-    def print_last_performance(self):
-        """
-        """
-        self.print_last_train_performance() 
-        self.print_last_test_performance() 
-
 
 class MyNeuralNetwork():
     """
     """
     
-    def __init__(self, model, loss_fn, optimizer, dataloader_train, dataloader_test, device='cpu'):
+    def __init__(self, 
+                 model, 
+                 loss_fn, 
+                 optimizer, 
+                 dataloader_train, 
+                 dataloader_test, 
+                 device='cpu', 
+                 criterion=AccuracyCriterion(),
+                 custom_eval=None):
         """
         """
         
@@ -152,92 +41,113 @@ class MyNeuralNetwork():
         self.batch_size_train = dataloader_train.batch_size
         self.batch_size_test = dataloader_test.batch_size
         
+        self.criterion = criterion
+        print(self.criterion)
         self.device = device
-        self._logger = NNLogger()
+        
+        self.log = []
         
         self.epoch = 0
         self.iteration = 0
 
-    
-    def _log_traindata(self, iteration, epoch, accuracy, cost):
-        self._logger.add_entry_traindata_log(iteration, epoch, accuracy, cost)
-
-    
-    def _log_traindata_batch(self, iteration, epoch, accuracy, cost, batch):
-        self._logger.add_entry_traindata_batch_log(iteration, epoch, accuracy, cost, batch)
-
-
-    def _log_testdata(self, iteration, epoch, accuracy, cost):
-        self._logger.add_entry_testdata_log(iteration, epoch, accuracy, cost)
-
-
-    def _log_event(self, iteration, epoch, starttime, endtime, description):
-        self._logger.add_entry_event_log(iteration, epoch, starttime, endtime, description)
-
-
-    def perflog2pandas(self):
-        return self._logger.perflogdata2pandas()
+        
+        # If we attach data directly
+#        self.X_train = None
+#        self.y_train = None
+#        self.X_test = None
+#        self.y_test = None
+#        
+#        if len(dataloader_train) == 1:
+#            X, y = next(dataloader_train)
+#            self.X_train = X.to(self.device)
+#            self.y_train = y.to(self.device)
+#        
+#        if len(dataloader_test) == 1:
+#            X, y = next(dataloader_test)
+#            self.X_test = X.to(self.device)
+#            self.y_test = y.to(self.device)
     
     
-    def eventlog2pandas(self):
-        return self._logger.eventlog2pandas()
+    def log2pandas(self):
+        return pd.DataFrame(self.log)
 
 
-    def print_epoch_info(self):
-        self._logger.print_last_performance()
-
-
+    def add_log_entry(self, logtype, **additional_log_data):
+        
+        entry = {
+                'iteration':   self.iteration,
+                'epoch':       self.epoch,
+                'logtype':     logtype,
+                }
+        
+        for key, value in additional_log_data.items():
+            entry[key] = value
+        
+        self.log.append(entry)
+    
+    
+    
     def get_total_train_time(self):
-        df = self.eventlog2pandas()
-        df = df[df.description.str.startswith('Training Epoch ')]
+        df = self.log2pandas()
+        df = df[df.logtype == 'timer']
         return np.around(df.elapsed_time.sum(), decimals=1)
-
-
-    def test(self, dataloader):
-        size = len(dataloader.dataset)
+    
+    
+    def evaluate(self, dataloader):
+        
         self.model.eval()
-        cost, correct = 0, 0
-        with torch.no_grad():
+        size = len(dataloader.dataset)
+        loss_mean, crit = 0, []
+        
+        with torch.no_grad():    
             for X, y in dataloader:
                 X, y = X.to(self.device), y.to(self.device)
                 pred = self.model(X)
-                cost += self.loss_fn(pred, y).item()
-                correct += (pred.argmax(1) == y).type(torch.float).sum().item()
-        cost *= dataloader.batch_size/size
-        correct /= size
-        return 100*correct, cost
+                loss_mean += self.loss_fn(pred, y).item() * X.shape[0]
+                crit += self.criterion(pred, y)
+        
+        loss_mean /= size
+        crit = np.concatenate(crit, axis=0)
+        crit_mean = crit.mean()
+        return loss_mean, crit_mean, crit
     
+   
+    def evaluate_and_log_perf_traindata(self):
+        loss_mean, crit_mean, crit = self.evaluate(self.dataloader_train)
+        self.add_log_entry('performance', criterion=crit, criterion_mean=crit_mean,
+                           loss=loss_mean, dataset='train')
+   
 
-    def log_model_perf_testdata(self):
-        acc, cost = self.model_perf_testdata()
-        self._log_testdata(self.iteration, self.epoch, acc, cost)
+    def evaluate_and_log_perf_testdata(self):
+        loss_mean, crit_mean, crit = self.evaluate(self.dataloader_test)
+        self.add_log_entry('performance', criterion=crit, criterion_mean=crit_mean,
+                           loss=loss_mean, dataset='test')
 
 
-    def log_model_perf_traindata(self):
-        acc, cost = self.model_perf_traindata()
-        self._log_traindata(self.iteration, self.epoch, acc, cost)
-    
+    def predict(self, X):
+        self.model.eval()
+        X = X.to(self.device)
+        with torch.no_grad():
+            pred = self.model(X)
+#        softmax2d = nn.Softmax2d()
+        return pred
 
-    def model_perf_testdata(self):
-        return self.test(self.dataloader_test)
-    
 
-    def model_perf_traindata(self):
-        return self.test(self.dataloader_train)
-    
-    
     def _train_batch(self, X, y, batch=None):
         """
         """
-        # Compute prediction error
+        self.model.train()
+
+        # Compute prediction, loss and criterion
         pred = self.model(X)
         loss = self.loss_fn(pred, y)
-        correct = (pred.argmax(1) == y).type(torch.float).sum().item()
+        crit = np.array(self.criterion(pred, y))
         
         # Save performance data
-        acc = correct * 100 / self.dataloader_train.batch_size
-        cost = loss.item()
-        self._log_traindata_batch(self.iteration, self.epoch, acc, cost, batch)
+        crit_mean = crit.mean()
+        loss_val = loss.item()
+        self.add_log_entry('performance', criterion=crit, criterion_mean=crit_mean,
+                           loss=loss_val, dataset='train_batch', batch=batch)
         
         # Backpropagation
         self.optimizer.zero_grad()
@@ -266,9 +176,10 @@ class MyNeuralNetwork():
         """
         # Log initial performance of the model
         if self.epoch == 0 and self.iteration == 0:
-            self.log_model_perf_traindata()
-            self.log_model_perf_testdata()
-            self.print_epoch_info()
+            self.evaluate_and_log_perf_traindata()
+            self.print_performance()
+            self.evaluate_and_log_perf_testdata()
+            self.print_performance()
         
         start_time = timer()
 
@@ -284,23 +195,32 @@ class MyNeuralNetwork():
             self._train_batch(X, y, ibatch)
             
             if self.iteration in test_iterations:
-                self.log_model_perf_testdata()
+                self.evaluate_and_log_perf_testdata()
+                self.print_performance()
         
-        self.log_model_perf_traindata()
+        # Evaluate on all training data
+        self.evaluate_and_log_perf_traindata()
+        self.print_performance()
         
-        # prevent to evaluate the performance twice
+        # prevent to evaluate the performance twice in case it has already been done for this iteration
         if not self.iteration in test_iterations:
-            self.log_model_perf_testdata()
+            self.evaluate_and_log_perf_testdata()
+            self.print_performance()
         
-        self.print_epoch_info()
+        # Here we get the timing information and write it to the log
         end_time = timer()
-        self._log_event(self.iteration, self.epoch, start_time, end_time, 'Training Epoch %i' % self.epoch)
+        elapsed_time = end_time - start_time
+        self.add_log_entry('timer', start_time=start_time, end_time=end_time,
+                           elapsed_time=elapsed_time, dataset='epoch timing')
 
     
     
     def train(self, nepochs=1):
         """
         """
+        # Print the start of the performance output
+        self.print_performance_header()
+
         for iepoch in range(nepochs):
             self.train_epoch()
    
@@ -310,7 +230,37 @@ class MyNeuralNetwork():
             pickle.dump(self, fh)
 
 
+    def print_performance_header(self):
+        print('%9s %9s %9s %9s %14s' % ('EPOCH', 'ITERATION', 'DATASET', 'COST', self.criterion.name.upper()))
 
+
+    def print_performance(self, logentry=None, dataset=None, header=False):
+        if logentry is None:
+            df = self.log2pandas()
+            df = df[df.logtype == 'performance']
+            if dataset is None:
+                df = df.iloc[-1:]
+            else:
+                if isinstance(dataset, str):
+                    df = df[df.dataset == dataset].iloc[-1:]
+                else:
+                    idx = []
+                    for ds in dataset:
+                        idx.append(df[df.dataset == ds].index[-1])
+                    df = df.loc[idx]
+        else:
+            df = pd.DataFrame(logentry)
+
+        if header:
+            self.print_performance_header()
+        for index, row in df.iterrows():
+            print('%9i %9i %9s %9.3f %14.4f' % (row.epoch, 
+                                                row.iteration, 
+                                                row.dataset.upper(), 
+                                                row.loss,
+                                                row.criterion_mean))
+
+    
 def load_nn(fname):
     """
     """
