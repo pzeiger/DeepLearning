@@ -6,14 +6,31 @@ import numpy as np
 from timeit import default_timer as timer
 
 
+
 class AccuracyCriterion():
     
     def __init__(self):
         self.name = "accuracy"
+        self.onehot = OneHotEncoding()
 
-    def __call__(self, prediction, target, full=False):
-        return [(prediction.argmax(1) == target).type(torch.float).cpu().numpy()]
+    def __call__(self, logits, target, full=False):
+        return [(self.onehot(logits) == target).type(torch.float).cpu().numpy()]
+
+
+class LogitsToProbabilities():
     
+    def __init__(self):
+        self.softmax = nn.Softmax(dim=1)
+    
+    def __call__(self, logits):
+        return self.softmax(logits)
+
+
+class OneHotEncoding():
+    
+    def __call__(self, y):
+        return y.argmax(1)
+
 
 class MyNeuralNetwork():
     """
@@ -27,6 +44,8 @@ class MyNeuralNetwork():
                  dataloader_test, 
                  device='cpu', 
                  criterion=AccuracyCriterion(),
+                 logits2prob=LogitsToProbabilities(),
+                 onehot=OneHotEncoding(),
                  custom_eval=None):
         """
         """
@@ -42,30 +61,14 @@ class MyNeuralNetwork():
         self.batch_size_test = dataloader_test.batch_size
         
         self.criterion = criterion
-        print(self.criterion)
+        self.logits2prob = logits2prob
+        self.onehot = onehot
         self.device = device
         
         self.log = []
         
         self.epoch = 0
         self.iteration = 0
-
-        
-        # If we attach data directly
-#        self.X_train = None
-#        self.y_train = None
-#        self.X_test = None
-#        self.y_test = None
-#        
-#        if len(dataloader_train) == 1:
-#            X, y = next(dataloader_train)
-#            self.X_train = X.to(self.device)
-#            self.y_train = y.to(self.device)
-#        
-#        if len(dataloader_test) == 1:
-#            X, y = next(dataloader_test)
-#            self.X_test = X.to(self.device)
-#            self.y_test = y.to(self.device)
     
     
     def log2pandas(self):
@@ -93,21 +96,34 @@ class MyNeuralNetwork():
         return np.around(df.elapsed_time.sum(), decimals=1)
     
     
-    def evaluate(self, dataloader):
+    def evaluate(self, dataloader=None, X=None, y=None):
         
         self.model.eval()
-        size = len(dataloader.dataset)
-        loss_mean, crit = 0, []
         
-        with torch.no_grad():    
-            for X, y in dataloader:
-                X, y = X.to(self.device), y.to(self.device)
-                pred = self.model(X)
-                loss_mean += self.loss_fn(pred, y).item() * X.shape[0]
-                crit += self.criterion(pred, y)
+        if dataloader == None:
+            with torch.no_grad():    
+                logits = self.model(X)
+                loss_mean = self.loss_fn(logits, y).item()
+                crit = self.criterion(logits, y)
+        else:
+            loss_mean, crit, indices = 0, [], []
+            size = len(dataloader.dataset)
+            with torch.no_grad():    
+                for X, y, index in dataloader:
+                    X, y = X.to(self.device), y.to(self.device)
+                    logits = self.model(X)
+                    loss_mean += self.loss_fn(logits, y).item() * X.shape[0]
+                    crit += self.criterion(logits, y)
+                    indices += [index.numpy()]
+#            print(crit)
+#            print(indices)
+#            print(loss_mean)
+#            print(size)
+            loss_mean /= size
+            indices = np.argsort(np.concatenate(indices))
+            crit = np.concatenate(crit)
+            crit=crit[indices]
         
-        loss_mean /= size
-        crit = np.concatenate(crit, axis=0)
         crit_mean = crit.mean()
         return loss_mean, crit_mean, crit
     
@@ -122,31 +138,39 @@ class MyNeuralNetwork():
         loss_mean, crit_mean, crit = self.evaluate(self.dataloader_test)
         self.add_log_entry('performance', criterion=crit, criterion_mean=crit_mean,
                            loss=loss_mean, dataset='test')
-
-
-    def predict(self, X):
+    
+    
+    def predict_onehot(self, X):
         self.model.eval()
         X = X.to(self.device)
         with torch.no_grad():
-            pred = self.model(X)
-#        softmax2d = nn.Softmax2d()
-        return pred
-
-
+            logits = self.model(X)
+        return self.onehot(logits)
+    
+    
+    def predict_probabilities(self, X):
+        self.model.eval()
+        X = X.to(self.device)
+        with torch.no_grad():
+            logits = self.model(X)
+        return self.logits2prob(logits)
+    
+    
     def _train_batch(self, X, y, batch=None):
         """
         """
         self.model.train()
 
         # Compute prediction, loss and criterion
-        pred = self.model(X)
-        loss = self.loss_fn(pred, y)
-        crit = np.array(self.criterion(pred, y))
+        logits = self.model(X)
+        loss = self.loss_fn(logits, y)
+        
+        crit = np.array(self.criterion(logits, y))
         
         # Save performance data
         crit_mean = crit.mean()
         loss_val = loss.item()
-        self.add_log_entry('performance', criterion=crit, criterion_mean=crit_mean,
+        self.add_log_entry('performance', criterion_mean=crit_mean,
                            loss=loss_val, dataset='train_batch', batch=batch)
         
         # Backpropagation
@@ -187,7 +211,7 @@ class MyNeuralNetwork():
         
         test_iterations = self._get_iterations_when2eval(when2eval)
 
-        for ibatch, (X, y) in enumerate(self.dataloader_train):
+        for ibatch, (X, y, index) in enumerate(self.dataloader_train):
             self.iteration += 1
             
             X, y = X.to(self.device), y.to(self.device)

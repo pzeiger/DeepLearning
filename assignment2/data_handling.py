@@ -17,10 +17,22 @@ import numpy as np
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 
+
+class MNISTDataset(datasets.MNIST):
+    
+    def __getitem__(self, index):
+        
+        img, target = super(MNISTDataset, self).__getitem__(index)
+        
+        return img, target, index
+
+
+
+
 def init_MNIST(batch_size_train, batch_size_test, shuffle=False):
     
     # Download training data from open datasets.
-    training_data = datasets.MNIST(
+    training_data = MNISTDataset(
         root="data",
         train=True,
         download=True,
@@ -29,7 +41,7 @@ def init_MNIST(batch_size_train, batch_size_test, shuffle=False):
     print(training_data)
     
     # Download test data from open datasets.
-    test_data = datasets.MNIST(
+    test_data = MNISTDataset(
         root="data",
         train=False,
         download=True,
@@ -41,29 +53,20 @@ def init_MNIST(batch_size_train, batch_size_test, shuffle=False):
     dataloader_train = DataLoader(training_data, batch_size=batch_size_train, shuffle=shuffle)
     dataloader_test = DataLoader(test_data, batch_size=batch_size_test, shuffle=shuffle)
 
-    for X, y in dataloader_train:
+    for X, y, index in dataloader_train:
         print("Shape of X for train data [N, C, H, W]: ", X.shape)
         print("Shape of y for train data: ", y.shape, y.dtype)
         break
     
-    for X, y in dataloader_test:
+    for X, y, index in dataloader_test:
         print("Shape of X for test data [N, C, H, W]: ", X.shape)
         print("Shape of y for test data: ", y.shape, y.dtype)
         break
     
+
     return dataloader_train, dataloader_test
 
-
-
-
     
-    def target_transform(self, target):
-        tmparr = np.array(target)[np.newaxis,...]  # Needs to have shape 1xHxW
-        return torch.as_tensor(tmparr.astype(np.double)/255., dtype=self.target_dtype)
-
-
-
-
 
 class WarwickDataset(VisionDataset):
     """WARWICK dataset."""
@@ -119,7 +122,7 @@ class WarwickDataset(VisionDataset):
         if self.target_transform is not None:
             target = self.target_transform(target)
         
-        return img, target
+        return img, target, index
     
     
     def dataset2tensors(self):
@@ -133,32 +136,32 @@ class WarwickDataset(VisionDataset):
 
 
 
-class ImgToTensor2Channels():
-    def __init__(self, transform=ToTensor()):
-        self.transform = transform
-        
-    def __call__(self, img):
-        img = self.transform(img)
-        return img[:2,...]
-
-
-class TargetTransformCrossEntropy():
-    def __call__(self, target):
-        tmparr = np.array(target)  # Needs to have shape HxW
-        return torch.as_tensor(tmparr.astype(np.double)/255., dtype=torch.int64)
-
-
-def init_warwick(batch_size_train, batch_size_test, shuffle=False, device='cpu'):
-
-    training_data = WarwickDataset('WARWICK/Train', transform=ImgToTensor2Channels(), 
-                                   target_transform=TargetTransformCrossEntropy())
-
-    test_data = WarwickDataset('WARWICK/Test', transform=ImgToTensor2Channels(),
-                               target_transform=TargetTransformCrossEntropy())
-
-    train_dataloader = DataLoader(training_data, batch_size=batch_size_train, shuffle=shuffle)
-    test_dataloader = DataLoader(test_data, batch_size=batch_size_test, shuffle=shuffle)
-    
-    return train_dataloader, test_dataloader
-
+#class ImgToTensor2Channels():
+#    def __init__(self, transform=ToTensor()):
+#        self.transform = transform
+#        
+#    def __call__(self, img):
+#        img = self.transform(img)
+#        return img[:2,...]
+#
+#
+#class TargetTransformCrossEntropy():
+#    def __call__(self, target):
+#        tmparr = np.array(target)  # Needs to have shape HxW
+#        return torch.as_tensor(tmparr.astype(np.double)/255., dtype=torch.int64)
+#
+#
+#def init_warwick(batch_size_train, batch_size_test, shuffle=False):
+#
+#    training_data = WarwickDataset('WARWICK/Train', transform=ImgToTensor2Channels(), 
+#                                   target_transform=TargetTransformCrossEntropy())
+#
+#    test_data = WarwickDataset('WARWICK/Test', transform=ImgToTensor2Channels(),
+#                               target_transform=TargetTransformCrossEntropy())
+#
+#    train_dataloader = DataLoader(training_data, batch_size=batch_size_train, shuffle=shuffle)
+#    test_dataloader = DataLoader(test_data, batch_size=batch_size_test, shuffle=shuffle)
+#    
+#    return train_dataloader, test_dataloader
+#
 
