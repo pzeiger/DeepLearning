@@ -283,8 +283,29 @@ class MyNeuralNetwork():
                                                 row.dataset.upper(), 
                                                 row.loss,
                                                 row.criterion_mean))
+   
 
-    
+    def print_performance_history(self, dataset=None, header=False):
+        df = self.log2pandas()
+        df = df[df.logtype == 'performance']
+        if isinstance(dataset, str):
+            df = df[df.dataset == dataset]
+        else:
+            idx = []
+            for ds in dataset:
+                idx.append(df[df.dataset == ds])
+            df = df.loc[idx]
+        
+        if header:
+            self.print_performance_header()
+        for index, row in df.iterrows():
+            print('%9i %9i %9s %9.3f %14.4f' % (row.epoch, 
+                                                row.iteration, 
+                                                row.dataset.upper(), 
+                                                row.loss,
+                                                row.criterion_mean))
+        
+
 def load_nn(fname):
     """
     """
