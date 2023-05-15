@@ -285,7 +285,7 @@ class MyNeuralNetwork():
                                                 row.criterion_mean))
    
 
-    def print_performance_history(self, dataset=None, header=False):
+    def print_performance_history(self, dataset=['train', 'test'], header=False):
         df = self.log2pandas()
         df = df[df.logtype == 'performance']
         if isinstance(dataset, str):
@@ -293,9 +293,10 @@ class MyNeuralNetwork():
         else:
             idx = []
             for ds in dataset:
-                idx.append(df[df.dataset == ds])
+                idx.append(df[df.dataset == ds].index)
+            idx = np.array(idx).reshape(-1)
             df = df.loc[idx]
-        
+        df = df.sort_values(by=['iteration'])
         if header:
             self.print_performance_header()
         for index, row in df.iterrows():
@@ -311,6 +312,8 @@ def load_nn(fname):
     """
     with open(fname, 'rb') as fh:
         nn = pickle.load(fh)
+    print(nn.model)
+    print(nn.print_performance_history(header=True))
     return nn
 
 
