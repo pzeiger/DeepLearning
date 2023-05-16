@@ -78,7 +78,6 @@ class WarwickDataset(VisionDataset):
         """
         self.transform = transform
         self.target_transform = target_transform
-        print('loading')
         self.data, self.targets = self.from_dir(root_dir)
    
 
