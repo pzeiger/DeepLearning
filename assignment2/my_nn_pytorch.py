@@ -141,21 +141,21 @@ class MyNeuralNetwork():
     
     
     def predict_onehot(self, X):
-        self.model.eval()
-        X = X.to(self.device)
-        with torch.no_grad():
-            logits = self.model(X)
-        return self.onehot(logits)
+        return self.onehot(self.predict_logits(X))
     
     
     def predict_probabilities(self, X):
+        return self.logits2prob(self.predict_logits(X))
+    
+    
+    def predict_logits(self, X):
         self.model.eval()
         X = X.to(self.device)
         with torch.no_grad():
             logits = self.model(X)
-        return self.logits2prob(logits)
+        return logits
     
-    
+
     def _train_batch(self, X, y, batch=None):
         """
         """
@@ -307,13 +307,14 @@ class MyNeuralNetwork():
                                                 row.criterion_mean))
         
 
-def load_nn(fname):
+def load_nn(fname, printinfo=False):
     """
     """
     with open(fname, 'rb') as fh:
         nn = pickle.load(fh)
-    print(nn.model)
-    print(nn.print_performance_history(header=True))
+    if printinfo:
+        print(nn.model)
+        print(nn.print_performance_history(header=True))
     return nn
 
 

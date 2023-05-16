@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 
-def plot_acc_loss_ww(log, size_epoch):
+def plot_acc_loss_ww(log, size_epoch, test_data_label='all test data'):
 
     fig, axs = plt.subplots(2, figsize=(10,8), sharex=True)
 
@@ -15,7 +15,7 @@ def plot_acc_loss_ww(log, size_epoch):
 
     axs[0].scatter(train_batch.iteration/size_epoch, train_batch.criterion_mean,
                    label='training data per batch', alpha=.1, color=colors[7])
-    axs[0].plot(train.epoch, train.criterion_mean, '^-', label='all training data',
+    axs[0].plot(train.epoch, train.criterion_mean, '^-', label=test_data_label,
                 alpha=1, lw=4, color=colors[0], markersize=8)
     axs[0].plot(test.epoch, test.criterion_mean, 'v--', label='all test data',
                 alpha=1, lw=3, color=colors[1], markersize=8)
@@ -29,7 +29,7 @@ def plot_acc_loss_ww(log, size_epoch):
                    label='training data per batch', alpha=.1, color=colors[7])
     axs[1].plot(train.epoch, train.loss, '^-', label='all training data',
                 alpha=1, lw=4, color=colors[0], markersize=8)
-    axs[1].plot(test.epoch, test.loss, 'v--', label='all test data',
+    axs[1].plot(test.epoch, test.loss, 'v--', label=test_data_label,
                 alpha=.8, lw=3, color=colors[1], markersize=8)
     axs[1].set_ylabel('Loss $J$', fontsize=14)
     axs[1].tick_params(labelsize=12)
