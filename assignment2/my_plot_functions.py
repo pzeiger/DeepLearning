@@ -15,9 +15,9 @@ def plot_acc_loss_ww(log, size_epoch, test_data_label='all test data'):
 
     axs[0].scatter(train_batch.iteration/size_epoch, train_batch.criterion_mean,
                    label='training data per batch', alpha=.1, color=colors[7])
-    axs[0].plot(train.epoch, train.criterion_mean, '^-', label=test_data_label,
+    axs[0].plot(train.epoch, train.criterion_mean, '^-', label='all train data',
                 alpha=1, lw=4, color=colors[0], markersize=8)
-    axs[0].plot(test.epoch, test.criterion_mean, 'v--', label='all test data',
+    axs[0].plot(test.epoch, test.criterion_mean, 'v--', label=test_data_label,
                 alpha=1, lw=3, color=colors[1], markersize=8)
     axs[0].legend(loc='lower center', bbox_to_anchor=(0.5, 1.05), ncol=3, fontsize=14)
     axs[0].set_ylim(bottom=0., top=1.)

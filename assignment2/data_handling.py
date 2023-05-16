@@ -6,16 +6,10 @@ from torch.utils.data import DataLoader
 from torchvision import datasets
 from torchvision.datasets.vision import VisionDataset
 from torchvision.transforms import ToTensor
-import matplotlib.pyplot as plt
 from PIL import Image
 import glob
-
 import pickle
 import numpy as np
-
-
-colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-
 
 
 class MNISTDataset(datasets.MNIST):
@@ -25,8 +19,6 @@ class MNISTDataset(datasets.MNIST):
         img, target = super(MNISTDataset, self).__getitem__(index)
         
         return img, target, index
-
-
 
 
 def init_MNIST(batch_size_train, batch_size_test, shuffle=False):
@@ -62,12 +54,10 @@ def init_MNIST(batch_size_train, batch_size_test, shuffle=False):
         print("Shape of X for test data [N, C, H, W]: ", X.shape)
         print("Shape of y for test data: ", y.shape, y.dtype)
         break
-    
 
     return dataloader_train, dataloader_test
 
     
-
 class WarwickDataset(VisionDataset):
     """WARWICK dataset."""
 
@@ -132,35 +122,4 @@ class WarwickDataset(VisionDataset):
             y.append(self.target_transform(tt))
         return torch.stack(X), torch.stack(y)
 
-
-
-
-#class ImgToTensor2Channels():
-#    def __init__(self, transform=ToTensor()):
-#        self.transform = transform
-#        
-#    def __call__(self, img):
-#        img = self.transform(img)
-#        return img[:2,...]
-#
-#
-#class TargetTransformCrossEntropy():
-#    def __call__(self, target):
-#        tmparr = np.array(target)  # Needs to have shape HxW
-#        return torch.as_tensor(tmparr.astype(np.double)/255., dtype=torch.int64)
-#
-#
-#def init_warwick(batch_size_train, batch_size_test, shuffle=False):
-#
-#    training_data = WarwickDataset('WARWICK/Train', transform=ImgToTensor2Channels(), 
-#                                   target_transform=TargetTransformCrossEntropy())
-#
-#    test_data = WarwickDataset('WARWICK/Test', transform=ImgToTensor2Channels(),
-#                               target_transform=TargetTransformCrossEntropy())
-#
-#    train_dataloader = DataLoader(training_data, batch_size=batch_size_train, shuffle=shuffle)
-#    test_dataloader = DataLoader(test_data, batch_size=batch_size_test, shuffle=shuffle)
-#    
-#    return train_dataloader, test_dataloader
-#
 
