@@ -29,6 +29,8 @@ class MyNetwork(nn.Module):
         self.rnn_type = rnn_type
         self.epoch = 0
         self.time = 0
+        self.train_loss = []
+        self.val_loss = []
     
     
     def forward(self, input, hidden=None):

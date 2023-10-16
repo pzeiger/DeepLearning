@@ -44,26 +44,22 @@ def repackage_hidden(h):
 
 
 def print_log_head():
-    print('-' * 75)
-    print('|              |          |       loss        |        perplexity         |')
-    print('| end of epoch |   time   |-------------------|---------------------------|')
-    print('|              |          |  train  |  valid  |    train    |    valid    |')
-    print('-' * 75)
-    print('-' * 75)
+    print('-' * 78)
+    print('|              |             |       loss        |        perplexity         |')
+    print('| end of epoch |     time    |-------------------|---------------------------|')
+    print('|              |             |  train  |  valid  |    train    |    valid    |')
+    print('-' * 78)
+    print('-' * 78)
 
 
 def load_model(fname):
     model = torch.load(fname)
-    train_loss = evaluate(train_data)
-    val_loss = evaluate(val_data)
-    best_val_loss = val_loss
     
     print_log_head()
-    print('|          {:3d} |   {:5.2f}s |   {:5.2f} |   {:5.2f} |    {:8.2f} |    {:8.2f} |'\
-          .format(epoch, (time.time() - epoch_start_time),
-                  train_loss[-1], val_loss[-1], math.exp(train_loss[-1]),
-                  math.exp(val_loss[-1])))
-    print('-' * 75)
+    print('|          {:3d} |   {:9.1f}s |   {:5.2f} |   {:5.2f} |    {:8.2f} |    {:8.2f} |'\
+          .format(model.epoch, model.time, model.train_loss[-1], model.val_loss[-1], 
+                  math.exp(model.train_loss[-1]), math.exp(model.val_loss[-1])))
+    print('-' * 78)
     
-    return train_loss, val_loss, best_val_loss
+    return model
 
