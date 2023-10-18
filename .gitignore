@@ -166,3 +166,4 @@ assignment2/ex*.pkl
 
 assignment3/_build/*
 assignment3/pytorch_example/*
+assignment3/*.torch
